@@ -12,6 +12,18 @@ from gurobipy import GRB, Model, quicksum
 from evrptw_core.schema import EVRPTWInstance, EVRPTWSolution, merge_route_sequences
 
 
+MAX_GUROBI_TIME_LIMIT_S = 7200.0
+
+
+def capped_time_limit_s(time_limit_s: float | int | None) -> float:
+    if time_limit_s is None:
+        return MAX_GUROBI_TIME_LIMIT_S
+    requested = float(time_limit_s)
+    if requested < 0.0:
+        raise ValueError(f"time_limit_s must be non-negative, got {requested}")
+    return min(requested, MAX_GUROBI_TIME_LIMIT_S)
+
+
 @dataclass(frozen=True)
 class GurobiSolverConfig:
     time_limit_s: float = 7200.0
@@ -91,6 +103,7 @@ class GurobiEVRPTWSolver:
             )
             model.addConstr(distance_expr <= float(stage1_best_distance) + distance_tolerance, name="distance_optimal_tolerance")
             model.setObjective(vehicle_expr, GRB.MINIMIZE)
+            model.Params.TimeLimit = capped_time_limit_s(self.config.time_limit_s)
             model.optimize()
             tie_break_status = int(model.Status)
             tie_break_status_name = self._status_name(tie_break_status)
@@ -203,7 +216,7 @@ class GurobiEVRPTWSolver:
             charge_departure[cs_node] = full_charge_s
 
         model = Model(f"EVRPTW_{instance.instance_id}")
-        model.Params.TimeLimit = float(self.config.time_limit_s)
+        model.Params.TimeLimit = capped_time_limit_s(self.config.time_limit_s)
         model.Params.MIPGap = float(self.config.mip_gap)
         model.Params.OutputFlag = int(self.config.output_flag)
         if self.config.threads is not None:

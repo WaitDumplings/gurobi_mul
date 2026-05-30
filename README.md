@@ -42,7 +42,7 @@ The index range is half-open: `--start_index 100 --end_index 200` means `100 <= 
 - `--output_path`: directory for `gurobi_summary.csv`, `gurobi_time_trace.csv`, and solution pickle files. If omitted, defaults to `results/<split>/<scale>_<start>_<end>` inside this repository.
 - `--reference_output_path`: optional `reference_solutions` root. Leave this unset for eval-public runs.
 - `--cs_copies`: charging-station dummy copies per active station.
-- `--time_limit_s`: per-instance limit, default `7200`.
+- `--time_limit_s`: Gurobi optimize-call limit, default `7200`; the distance solve is capped at `7200` seconds, and if it proves optimal, the vehicle-count tie-break runs as a separate capped optimize call.
 
 The runner uses `--skip_completed` by default, so restarting the same command resumes from the existing `gurobi_summary.csv`. Add `--no_skip_completed` only when you intentionally want to recompute existing rows.
 

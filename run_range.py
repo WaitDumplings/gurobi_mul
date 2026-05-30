@@ -32,7 +32,7 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=16, help="Number of parallel worker processes.")
     parser.add_argument("--threads", type=int, default=1, help="Gurobi threads per worker.")
     parser.add_argument("--cs_copies", type=int, default=2, help="Charging-station dummy copies per station.")
-    parser.add_argument("--time_limit_s", type=float, default=7200.0, help="Per-instance Gurobi time limit in seconds.")
+    parser.add_argument("--time_limit_s", type=float, default=7200.0, help="Gurobi optimize-call time limit in seconds; hard-capped at 7200.")
     parser.add_argument("--checkpoints_s", default="60,300,900,3600,7200", help="Comma-separated incumbent checkpoint seconds.")
     parser.add_argument("--mip_gap", type=float, default=0.0)
     parser.add_argument("--no_skip_completed", action="store_true", help="Re-solve completed rows instead of resuming.")

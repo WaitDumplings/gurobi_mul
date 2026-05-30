@@ -14,7 +14,7 @@ from typing import Any
 from evrptw_core.io import iter_instances, save_solution
 from evrptw_core.schema import EVRPTWSolution, solution_route_sequence
 from evrptw_core.validation import validate_instance_structure
-from gurobi_solver import GurobiEVRPTWSolver, GurobiSolverConfig
+from gurobi_solver import GurobiEVRPTWSolver, GurobiSolverConfig, MAX_GUROBI_TIME_LIMIT_S, capped_time_limit_s
 
 
 DEFAULT_EXACT_TIME_LIMIT_S = 7200.0
@@ -87,15 +87,19 @@ def resolve_time_schedule(
     requested_time_limit_s: float | None,
 ) -> tuple[tuple[float, ...], float]:
     if not requested_checkpoints_s:
-        time_limit_s = float(requested_time_limit_s) if requested_time_limit_s is not None else DEFAULT_EXACT_TIME_LIMIT_S
+        requested = float(requested_time_limit_s) if requested_time_limit_s is not None else DEFAULT_EXACT_TIME_LIMIT_S
+        time_limit_s = capped_time_limit_s(requested)
         return (time_limit_s,), time_limit_s
 
-    last_checkpoint_s = max(requested_checkpoints_s)
     if requested_time_limit_s is None:
-        time_limit_s = last_checkpoint_s
+        requested = max(requested_checkpoints_s)
     else:
-        time_limit_s = max(float(requested_time_limit_s), last_checkpoint_s)
-    return requested_checkpoints_s, time_limit_s
+        requested = max(float(requested_time_limit_s), max(requested_checkpoints_s))
+    time_limit_s = capped_time_limit_s(requested)
+    checkpoints_s = tuple(t for t in requested_checkpoints_s if t <= time_limit_s)
+    if not checkpoints_s:
+        checkpoints_s = (time_limit_s,)
+    return checkpoints_s, time_limit_s
 
 
 def checkpoint_label(checkpoint_s: float | int | None) -> str:
@@ -529,7 +533,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Run the exact Gurobi EVRP-TW-D solver on pickle instances.")
     parser.add_argument("--dataset_path", required=True, help="Dataset root or one instance pickle file.")
     parser.add_argument("--save_path", required=True, help="Directory for benchmark summaries and solution pickles.")
-    parser.add_argument("--time_limit_s", type=float, default=None, help="Max solve time in seconds. Defaults to max checkpoint, or 7200 when checkpoints are empty.")
+    parser.add_argument("--time_limit_s", type=float, default=None, help="Max solve time in seconds for each Gurobi optimize call. Hard-capped at 7200 seconds.")
     parser.add_argument("--mip_gap", type=float, default=0.0)
     parser.add_argument("--cs_copies", type=int, default=3, help="Number of dummy copies per active charging station. Default: 3.")
     parser.add_argument("--output_flag", type=int, default=0)
@@ -566,7 +570,7 @@ def main(argv: list[str] | None = None) -> None:
         raise ValueError(f"--start_index must be less than --end_index, got {args.start_index} >= {args.end_index}")
 
     print(
-        f"Exact benchmark schedule: time_limit_s={time_limit_s:g}, "
+        f"Exact benchmark schedule: time_limit_s={time_limit_s:g}, max_optimize_call_s={MAX_GUROBI_TIME_LIMIT_S:g}, "
         f"checkpoints_s={list(checkpoints_s)}, cs_copies={args.cs_copies}, "
         f"workers={workers}, threads_per_worker={threads or 'gurobi-default'}"
     )

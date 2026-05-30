@@ -15,7 +15,7 @@ Main options:
 Other options:
   --split NAME          Dataset split. Default: train
   --cs-copies N         Charging-station dummy copies. Default: 2
-  --time-limit N        Per-instance time limit seconds. Default: 7200
+  --time-limit N        Gurobi optimize-call time limit seconds. Default: 7200; hard cap: 7200
   --dataset-path PATH   Dataset path. Default: ../dataset_v1/dataset/<split>/<CusN>
   --output-path PATH    Output path. Default: results/<split>/<CusN>_<start>_<end>
   --log-dir PATH        Log directory. Default: logs
