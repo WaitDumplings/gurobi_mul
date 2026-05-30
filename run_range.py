@@ -5,11 +5,13 @@ import os
 from pathlib import Path
 
 
-DEFAULT_EVRPTW_ROOT = Path("/data/Maojie/EVRPTW-DB")
+SCRIPT_ROOT = Path(__file__).resolve().parent
+DEFAULT_EVRPTW_ROOT = SCRIPT_ROOT.parent / "EVRPTW-DB"
+DEFAULT_DATASET_ROOT = SCRIPT_ROOT.parent / "dataset_v1" / "dataset"
 
 
 def default_output_path(split: str, scale: str, start_index: int, end_index: int) -> Path:
-    return Path("/data/Maojie/gurobi_mul/results") / split / f"{scale}_{start_index}_{end_index}"
+    return SCRIPT_ROOT / "results" / split / f"{scale}_{start_index}_{end_index}"
 
 
 def main() -> None:
@@ -19,9 +21,9 @@ def main() -> None:
             "Example: Cus15 train instances with numeric suffixes [100, 200)."
         )
     )
-    parser.add_argument("--evrptw_root", default=str(DEFAULT_EVRPTW_ROOT), help="EVRPTW-DB root used for dataset defaults and EVRPTW_Core imports.")
+    parser.add_argument("--evrptw_root", default=str(DEFAULT_EVRPTW_ROOT), help="EVRPTW-DB root used for EVRPTW_Core imports.")
     parser.add_argument("--dataset_path", default="", help="Split dataset directory or a single pickle file. Overrides --dataset_root/--split.")
-    parser.add_argument("--dataset_root", default="", help="Dataset root containing train/val/eval. Defaults to <evrptw_root>/EVRPTW_Dataset/dataset_v1/dataset.")
+    parser.add_argument("--dataset_root", default=str(DEFAULT_DATASET_ROOT), help="Dataset root containing train/val/eval. Defaults to ../dataset_v1/dataset relative to this repository.")
     parser.add_argument("--split", default="val", choices=["train", "val", "eval"], help="Dataset split when --dataset_path is not provided.")
     parser.add_argument("--scale", default="Cus15", help="Scale to run, e.g. Cus5, Cus15, Cus50.")
     parser.add_argument("--start_index", type=int, required=True, help="Inclusive numeric instance suffix start.")
@@ -43,7 +45,7 @@ def main() -> None:
 
     from run_gurobi import main as run_gurobi_main
 
-    dataset_root = Path(args.dataset_root).resolve() if args.dataset_root else evrptw_root / "EVRPTW_Dataset/dataset_v1/dataset"
+    dataset_root = Path(args.dataset_root).resolve()
     dataset_path = Path(args.dataset_path).resolve() if args.dataset_path else dataset_root / args.split
     output_path = Path(args.output_path).resolve() if args.output_path else default_output_path(
         args.split,

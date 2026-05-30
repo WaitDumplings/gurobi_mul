@@ -2,7 +2,20 @@
 
 Standalone multiprocessing Gurobi runner for EVRPTW dataset shards.
 
-The code is copied from `EVRPTW-DB/EVRPTW_Benchmark/Exact/Gurobi_Solver` and uses `EVRPTW_Core` from `/data/Maojie/EVRPTW-DB` by default. Override that root with `EVRPTW_DB_ROOT` or `--evrptw_root` if the repository lives somewhere else.
+The code is copied from `EVRPTW-DB/EVRPTW_Benchmark/Exact/Gurobi_Solver`. By default it expects this directory layout:
+
+```text
+<workdir>/
+  gurobi_mul/
+  dataset_v1/
+    dataset/
+      train/
+      val/
+      eval/
+  EVRPTW-DB/
+```
+
+The default dataset path is `../dataset_v1/dataset/<split>` relative to `gurobi_mul`. `EVRPTW_Core` is imported from sibling `../EVRPTW-DB` by default; override it with `EVRPTW_DB_ROOT` or `--evrptw_root` if needed.
 
 ## Run A Range
 
@@ -20,7 +33,6 @@ python run_range.py \
   --end_index 200 \
   --workers 16 \
   --cs_copies 2 \
-  --output_path /data/Maojie/gurobi_mul/results/train/Cus15_100_200 \
   --verbose
 ```
 
@@ -28,12 +40,13 @@ The index range is half-open: `--start_index 100 --end_index 200` means `100 <= 
 
 ## Main Arguments
 
-- `--dataset_path`: direct path to a split directory or a single pickle file. If omitted, the runner uses `<evrptw_root>/EVRPTW_Dataset/dataset_v1/dataset/<split>`.
+- `--dataset_path`: direct path to a split directory or a single pickle file. If omitted, the runner uses `../dataset_v1/dataset/<split>`.
+- `--dataset_root`: dataset root containing `train/val/eval`; default `../dataset_v1/dataset`.
 - `--split`: `train`, `val`, or `eval`; default `val`.
 - `--scale`: scale filter such as `Cus5`, `Cus15`, `Cus50`; default `Cus15`.
 - `--start_index`, `--end_index`: numeric instance suffix range.
 - `--workers`: multiprocessing worker count.
-- `--output_path`: directory for `gurobi_summary.csv`, `gurobi_time_trace.csv`, and solution pickle files. If omitted, defaults to `/data/Maojie/gurobi_mul/results/<split>/<scale>_<start>_<end>`.
+- `--output_path`: directory for `gurobi_summary.csv`, `gurobi_time_trace.csv`, and solution pickle files. If omitted, defaults to `results/<split>/<scale>_<start>_<end>` inside this repository.
 - `--reference_output_path`: optional `reference_solutions` root. Leave this unset for eval-public runs.
 - `--cs_copies`: charging-station dummy copies per active station.
 - `--time_limit_s`: per-instance limit, default `7200`.
