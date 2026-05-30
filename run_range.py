@@ -9,8 +9,8 @@ SCRIPT_ROOT = Path(__file__).resolve().parent
 DEFAULT_DATASET_ROOT = SCRIPT_ROOT.parent / "dataset_v1" / "dataset"
 
 
-def default_output_path(split: str, scale: str, start_index: int, end_index: int) -> Path:
-    return SCRIPT_ROOT / "results" / split / f"{scale}_{start_index}_{end_index}"
+def default_output_path(split: str, scale: str) -> Path:
+    return SCRIPT_ROOT / "results" / split / scale
 
 
 def main() -> None:
@@ -54,8 +54,6 @@ def main() -> None:
     output_path = Path(args.output_path).resolve() if args.output_path else default_output_path(
         args.split,
         args.scale,
-        args.start_index,
-        args.end_index,
     )
 
     gurobi_args = [

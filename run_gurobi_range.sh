@@ -17,7 +17,7 @@ Other options:
   --cs-copies N         Charging-station dummy copies. Default: 2
   --time-limit N        Gurobi optimize-call time limit seconds. Default: 7200; hard cap: 7200
   --dataset-path PATH   Dataset path. Default: ../dataset_v1/dataset/<split>/<CusN>
-  --output-path PATH    Output path. Default: results/<split>/<CusN>_<start>_<end>
+  --output-path PATH    Output path. Default: results/<split>/<CusN>
   --log-dir PATH        Log directory. Default: logs
   --log-file PATH       Log file. Default: timestamped file under logs/
   --conda-env NAME      Conda env. Default: maojie
@@ -159,7 +159,7 @@ done
 
 SCALE="$(normalize_scale "$CUS")"
 DATASET_PATH="${DATASET_PATH:-../dataset_v1/dataset/${SPLIT}/${SCALE}}"
-OUTPUT_PATH="${OUTPUT_PATH:-results/${SPLIT}/${SCALE}_${START_INDEX}_${END_INDEX}}"
+OUTPUT_PATH="${OUTPUT_PATH:-results/${SPLIT}/${SCALE}}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"

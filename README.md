@@ -39,7 +39,7 @@ The index range is half-open: `--start_index 100 --end_index 200` means `100 <= 
 - `--scale`: scale filter such as `Cus5`, `Cus15`, `Cus50`; default `Cus15`.
 - `--start_index`, `--end_index`: numeric instance suffix range.
 - `--workers`: multiprocessing worker count.
-- `--output_path`: directory for `gurobi_summary.csv`, `gurobi_time_trace.csv`, and solution pickle files. If omitted, defaults to `results/<split>/<scale>_<start>_<end>` inside this repository.
+- `--output_path`: directory for `gurobi_summary.csv`, `gurobi_time_trace.csv`, and solution pickle files. If omitted, defaults to `results/<split>/<scale>` inside this repository, so different index ranges for the same scale append/resume against the same summary CSV.
 - `--reference_output_path`: optional `reference_solutions` root. Leave this unset for eval-public runs.
 - `--cs_copies`: charging-station dummy copies per active station.
 - `--time_limit_s`: Gurobi optimize-call limit, default `7200`; the distance solve is capped at `7200` seconds, and if it proves optimal, the vehicle-count tie-break runs as a separate capped optimize call.
@@ -56,4 +56,4 @@ Each finished instance is flushed incrementally:
 - optional `<reference_output_path>/<split>/solutions.csv`
 - optional `<reference_output_path>/<split>/routes/<scale>/*.json`
 
-For multi-server runs, prefer separate `--output_path` directories and merge later by `instance_id`.
+Do not run multiple independent jobs against the same `--output_path` at the same time on a shared filesystem. Sequential runs with different index ranges are fine and will upsert into the same scale-level CSV.
