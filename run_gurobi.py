@@ -4,15 +4,12 @@ import argparse
 import csv
 import json
 import os
-import sys
 import traceback
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-EVRPTW_DB_ROOT = Path(os.environ.get("EVRPTW_DB_ROOT", "/data/Maojie/EVRPTW-DB")).resolve()
-sys.path.insert(0, str(EVRPTW_DB_ROOT / "EVRPTW_Core"))
 
 from evrptw_core.io import iter_instances, save_solution
 from evrptw_core.schema import EVRPTWSolution, solution_route_sequence

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import argparse
-import os
+import sys
 from pathlib import Path
 
 
 SCRIPT_ROOT = Path(__file__).resolve().parent
-DEFAULT_EVRPTW_ROOT = SCRIPT_ROOT.parent / "EVRPTW-DB"
 DEFAULT_DATASET_ROOT = SCRIPT_ROOT.parent / "dataset_v1" / "dataset"
 
 
@@ -21,7 +20,7 @@ def main() -> None:
             "Example: Cus15 train instances with numeric suffixes [100, 200)."
         )
     )
-    parser.add_argument("--evrptw_root", default=str(DEFAULT_EVRPTW_ROOT), help="EVRPTW-DB root used for EVRPTW_Core imports.")
+    parser.add_argument("--evrptw_root", default="", help="Optional legacy EVRPTW-DB root. If omitted, the bundled evrptw_core package in this repository is used.")
     parser.add_argument("--dataset_path", default="", help="Split dataset directory or a single pickle file. Overrides --dataset_root/--split.")
     parser.add_argument("--dataset_root", default=str(DEFAULT_DATASET_ROOT), help="Dataset root containing train/val/eval. Defaults to ../dataset_v1/dataset relative to this repository.")
     parser.add_argument("--split", default="val", choices=["train", "val", "eval"], help="Dataset split when --dataset_path is not provided.")
@@ -40,8 +39,13 @@ def main() -> None:
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
-    evrptw_root = Path(args.evrptw_root).resolve()
-    os.environ["EVRPTW_DB_ROOT"] = str(evrptw_root)
+    evrptw_core_source = "bundled evrptw_core"
+    if args.evrptw_root:
+        evrptw_core_root = Path(args.evrptw_root).resolve() / "EVRPTW_Core"
+        if not evrptw_core_root.exists():
+            raise FileNotFoundError(f"--evrptw_root does not contain EVRPTW_Core: {evrptw_core_root}")
+        sys.path.insert(0, str(evrptw_core_root))
+        evrptw_core_source = str(evrptw_core_root)
 
     from run_gurobi import main as run_gurobi_main
 
@@ -75,7 +79,7 @@ def main() -> None:
     if args.verbose:
         gurobi_args.append("--verbose")
 
-    print(f"EVRPTW root: {evrptw_root}")
+    print(f"EVRPTW core: {evrptw_core_source}")
     print(f"Dataset path: {dataset_path}")
     print(f"Output path: {output_path}")
     print(f"Shard: split={args.split} scale={args.scale} index=[{args.start_index}, {args.end_index}) workers={args.workers}")

@@ -2,7 +2,7 @@
 
 Standalone multiprocessing Gurobi runner for EVRPTW dataset shards.
 
-The code is copied from `EVRPTW-DB/EVRPTW_Benchmark/Exact/Gurobi_Solver`. By default it expects this directory layout:
+The code is copied from `EVRPTW-DB/EVRPTW_Benchmark/Exact/Gurobi_Solver`, with the small runtime `evrptw_core` package vendored into this repository. By default it expects this directory layout:
 
 ```text
 <workdir>/
@@ -12,29 +12,22 @@ The code is copied from `EVRPTW-DB/EVRPTW_Benchmark/Exact/Gurobi_Solver`. By def
       train/
       val/
       eval/
-  EVRPTW-DB/
 ```
 
-The default dataset path is `../dataset_v1/dataset/<split>` relative to `gurobi_mul`. `EVRPTW_Core` is imported from sibling `../EVRPTW-DB` by default; override it with `EVRPTW_DB_ROOT` or `--evrptw_root` if needed.
+The default dataset path is `../dataset_v1/dataset/<split>` relative to `gurobi_mul`. The runner imports the bundled `evrptw_core` package from this repository, so a separate `EVRPTW-DB` checkout is not required. `--evrptw_root` remains available only as a legacy override.
 
 ## Run A Range
 
 Example: run `Cus15` train instances `train_Cus15_000100` through `train_Cus15_000199` with 16 workers:
 
 ```bash
-cd /data/Maojie/gurobi_mul
+cd /data/Maojie/Github2/gurobi_mul
+conda activate maojie
 
-GRB_LICENSE_FILE=/home/exx/anaconda3/envs/maojie/lib/gurobi.lic \
-PYTHONPATH=/home/exx/anaconda3/envs/maojie/lib/python3.11/site-packages \
-python run_range.py \
-  --split train \
-  --scale Cus15 \
-  --start_index 100 \
-  --end_index 200 \
-  --workers 16 \
-  --cs_copies 2 \
-  --verbose
+./run_gurobi_range.sh --cus 15 --start 100 --end 200 --workers 16
 ```
+
+The script keeps a timestamped log under `logs/`. To detach it from the terminal, add `--detach`.
 
 The index range is half-open: `--start_index 100 --end_index 200` means `100 <= idx < 200`.
 

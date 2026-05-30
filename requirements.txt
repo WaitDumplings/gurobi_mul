@@ -4,3 +4,4 @@
 # Example for a Gurobi 13 license:
 # gurobipy>=13,<14
 gurobipy
+numpy
