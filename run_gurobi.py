@@ -529,6 +529,25 @@ def checkpoint_sort_value(row: dict[str, Any]) -> float:
         return float("inf")
 
 
+def preflight_gurobi_license() -> None:
+    try:
+        import gurobipy as gp
+
+        model = gp.Model("gurobi_license_preflight")
+        model.Params.OutputFlag = 0
+        x = model.addVar(lb=0.0, ub=1.0, name="x")
+        model.setObjective(x, gp.GRB.MAXIMIZE)
+        model.optimize()
+        model.dispose()
+    except Exception as exc:
+        license_file = os.environ.get("GRB_LICENSE_FILE", "")
+        suffix = f" GRB_LICENSE_FILE={license_file!r}." if license_file else ""
+        raise RuntimeError(
+            f"Gurobi license preflight failed before starting the batch.{suffix} "
+            f"Original error: {type(exc).__name__}: {exc}"
+        ) from exc
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Run the exact Gurobi EVRP-TW-D solver on pickle instances.")
     parser.add_argument("--dataset_path", required=True, help="Dataset root or one instance pickle file.")
@@ -574,6 +593,7 @@ def main(argv: list[str] | None = None) -> None:
         f"checkpoints_s={list(checkpoints_s)}, cs_copies={args.cs_copies}, "
         f"workers={workers}, threads_per_worker={threads or 'gurobi-default'}"
     )
+    preflight_gurobi_license()
 
     dataset_path = Path(args.dataset_path)
     save_path = Path(args.save_path)
