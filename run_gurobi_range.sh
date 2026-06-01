@@ -16,6 +16,7 @@ Other options:
   --split NAME          Dataset split. Default: train
   --cs-copies N         Charging-station dummy copies. Default: 2
   --time-limit N        Gurobi optimize-call time limit seconds. Default: 7200; hard cap: 7200
+  --mip-gap X           Gurobi relative MIP gap. Default: 0.0
   --dataset-path PATH   Dataset path. Default: ../dataset_v1/dataset/<split>/<CusN>
   --output-path PATH    Output path. Default: results/<split>/<CusN>
   --log-dir PATH        Log directory. Default: logs
@@ -66,6 +67,7 @@ CUS="${CUS:-${SCALE:-Cus15}}"
 SPLIT="${SPLIT:-train}"
 CS_COPIES="${CS_COPIES:-2}"
 TIME_LIMIT_S="${TIME_LIMIT_S:-7200}"
+MIP_GAP="${MIP_GAP:-0.0}"
 CONDA_ENV="${CONDA_ENV:-maojie}"
 LOG_DIR="${LOG_DIR:-logs}"
 DETACH="${DETACH:-0}"
@@ -108,6 +110,11 @@ while [[ $# -gt 0 ]]; do
     --time-limit|--time-limit-s)
       need_value "$1" "${2:-}"
       TIME_LIMIT_S="$2"
+      shift 2
+      ;;
+    --mip-gap|--mip_gap)
+      need_value "$1" "${2:-}"
+      MIP_GAP="$2"
       shift 2
       ;;
     --dataset-path)
@@ -194,6 +201,7 @@ echo "Range: [$START_INDEX, $END_INDEX)"
 echo "Workers: $WORKERS"
 echo "CS copies: $CS_COPIES"
 echo "Time limit seconds: $TIME_LIMIT_S"
+echo "MIP gap: $MIP_GAP"
 echo "Skip completed: enabled by run_range.py default"
 echo "Log file: $SCRIPT_DIR/$LOG_FILE"
 
@@ -227,6 +235,7 @@ printf '  %q' python -u run_range.py \
   --workers "$WORKERS" \
   --cs_copies "$CS_COPIES" \
   --time_limit_s "$TIME_LIMIT_S" \
+  --mip_gap "$MIP_GAP" \
   --output_path "$OUTPUT_PATH" \
   --verbose
 printf '\n'
@@ -240,6 +249,7 @@ python -u run_range.py \
   --workers "$WORKERS" \
   --cs_copies "$CS_COPIES" \
   --time_limit_s "$TIME_LIMIT_S" \
+  --mip_gap "$MIP_GAP" \
   --output_path "$OUTPUT_PATH" \
   --verbose
 
