@@ -28,7 +28,7 @@ Other options:
 Examples:
   ./run_gurobi_range.sh --workers 24 --start 0 --end 100 --cus 15
   ./run_gurobi_range.sh -w 24 -s 100 -e 200 -c Cus15
-  ./run_gurobi_range.sh --detach -w 24 -s 200 -e 300 -c 50
+  ./run_gurobi_range.sh --detach -w 32 -s 850 -e 1000 -c 15
 
 Resume behavior:
   The Python runner uses --skip_completed by default. Restarting the same
