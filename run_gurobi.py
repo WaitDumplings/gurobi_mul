@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-from evrptw_core.io import iter_instances, load_solution, save_solution
+from evrptw_core.io import iter_instances, save_solution
 from evrptw_core.schema import EVRPTWSolution, solution_route_sequence
 from evrptw_core.validation import validate_instance_structure
 from gurobi_solver import GurobiEVRPTWSolver, GurobiSolverConfig, MAX_GUROBI_TIME_LIMIT_S, capped_time_limit_s
@@ -494,26 +494,7 @@ def normalize_status_name(row: dict[str, Any]) -> str:
     return str(row.get("status_name") or row.get("status") or "").strip().upper()
 
 
-def resolve_relative_path(raw_path: str, base_dir: Path) -> Path | None:
-    raw_path = str(raw_path or "").strip()
-    if not raw_path:
-        return None
-    path = Path(raw_path)
-    if not path.is_absolute():
-        path = base_dir / path
-    return path
-
-
-def load_expert_routes(summary_row: dict[str, Any], summary_path: Path) -> list[list[int]]:
-    solution_path = resolve_relative_path(str(summary_row.get("solution_path") or ""), summary_path.parent)
-    if solution_path is not None and solution_path.exists():
-        try:
-            solution = load_solution(solution_path)
-            if solution.routes:
-                return solution.routes
-        except Exception:
-            pass
-
+def load_expert_routes(summary_row: dict[str, Any]) -> list[list[int]]:
     routes_json = str(summary_row.get("routes_json") or "").strip()
     if routes_json:
         try:
@@ -725,7 +706,7 @@ def main(argv: list[str] | None = None) -> None:
                     skipped_refine_status += 1
                     continue
 
-                warm_start_routes = load_expert_routes(expert_row, expert_summary_path)
+                warm_start_routes = load_expert_routes(expert_row)
                 if not warm_start_routes or not row_has_objective(expert_row):
                     skipped_refine_no_incumbent += 1
                     continue
