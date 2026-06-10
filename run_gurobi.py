@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-from evrptw_core.io import iter_instances, save_solution
+from evrptw_core.io import iter_instances, load_solution, save_solution
 from evrptw_core.schema import EVRPTWSolution, solution_route_sequence
 from evrptw_core.validation import validate_instance_structure
 from gurobi_solver import GurobiEVRPTWSolver, GurobiSolverConfig, MAX_GUROBI_TIME_LIMIT_S, capped_time_limit_s
@@ -335,6 +335,7 @@ def solve_instance_task(
     instance_file_raw: str,
     checkpoints_s: tuple[float, ...],
     save_traceback: bool,
+    warm_start_routes: list[list[int]] | None = None,
 ) -> dict[str, Any]:
     instance_file = Path(instance_file_raw)
     instance_id = instance.instance_id
@@ -352,7 +353,7 @@ def solve_instance_task(
             }
 
         solver = GurobiEVRPTWSolver(solver_config)
-        solution = solver.solve(instance)
+        solution = solver.solve(instance, warm_start_routes=warm_start_routes)
         return {
             "instance_id": instance_id,
             "summary_row": solved_summary_row(instance, instance_file, solution),
@@ -489,6 +490,54 @@ def read_csv_rows(path: Path) -> list[dict[str, Any]]:
         return list(csv.DictReader(f))
 
 
+def normalize_status_name(row: dict[str, Any]) -> str:
+    return str(row.get("status_name") or row.get("status") or "").strip().upper()
+
+
+def resolve_relative_path(raw_path: str, base_dir: Path) -> Path | None:
+    raw_path = str(raw_path or "").strip()
+    if not raw_path:
+        return None
+    path = Path(raw_path)
+    if not path.is_absolute():
+        path = base_dir / path
+    return path
+
+
+def load_expert_routes(summary_row: dict[str, Any], summary_path: Path) -> list[list[int]]:
+    solution_path = resolve_relative_path(str(summary_row.get("solution_path") or ""), summary_path.parent)
+    if solution_path is not None and solution_path.exists():
+        try:
+            solution = load_solution(solution_path)
+            if solution.routes:
+                return solution.routes
+        except Exception:
+            pass
+
+    routes_json = str(summary_row.get("routes_json") or "").strip()
+    if routes_json:
+        try:
+            routes = json.loads(routes_json)
+            if isinstance(routes, list) and routes:
+                return [[int(node) for node in route] for route in routes if isinstance(route, list)]
+        except Exception:
+            return []
+    return []
+
+
+def row_has_objective(summary_row: dict[str, Any]) -> bool:
+    return str(summary_row.get("objective_distance_km") or "").strip() != ""
+
+
+def build_expert_index(expert_summary_path: Path) -> dict[str, dict[str, Any]]:
+    rows = read_csv_rows(expert_summary_path)
+    return {
+        str(row.get("instance_id", "")): row
+        for row in rows
+        if str(row.get("instance_id", "")).strip()
+    }
+
+
 def write_csv_atomic(
     path: Path,
     rows: list[dict[str, Any]],
@@ -563,6 +612,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--end_index", type=int, default=None, help="Optional exclusive upper bound for the numeric instance id suffix.")
     parser.add_argument("--scales", default="", help="Optional comma-separated scale filter, e.g. Cus5,Cus15.")
     parser.add_argument("--skip_completed", action="store_true", help="Skip instances already present in gurobi_summary.csv.")
+    parser.add_argument("--expert_summary_path", default="", help="Optional existing gurobi_summary.csv used as warm-start experts for refine runs.")
     parser.add_argument("--reference_save_path", default="", help="Optional reference_solutions root for split/Cus*/solutions.csv and routes/*.json.")
     parser.add_argument("--reference_split", default="", help="Reference split name. Defaults to train/val/eval inferred from dataset_path.")
     parser.add_argument("--checkpoints_s", default="", help="Comma-separated seconds for incumbent snapshots, e.g. 60,300,900.")
@@ -593,6 +643,15 @@ def main(argv: list[str] | None = None) -> None:
         f"checkpoints_s={list(checkpoints_s)}, cs_copies={args.cs_copies}, "
         f"workers={workers}, threads_per_worker={threads or 'gurobi-default'}"
     )
+
+    expert_summary_path = Path(args.expert_summary_path) if args.expert_summary_path else None
+    expert_index: dict[str, dict[str, Any]] | None = None
+    if expert_summary_path is not None:
+        if not expert_summary_path.exists():
+            raise FileNotFoundError(f"--expert_summary_path does not exist: {expert_summary_path}")
+        expert_index = build_expert_index(expert_summary_path)
+        print(f"Expert summary: {expert_summary_path} rows={len(expert_index)}")
+
     preflight_gurobi_license()
 
     dataset_path = Path(args.dataset_path)
@@ -627,9 +686,13 @@ def main(argv: list[str] | None = None) -> None:
         for row in existing_summary_rows
         if str(row.get("status_name") or row.get("status") or "") not in {"", "ERROR", "INVALID_INSTANCE"}
     }
-    records: list[tuple[Path, Any]] = []
+    records: list[tuple[Path, Any, list[list[int]] | None]] = []
     skipped_completed_count = 0
     skipped_range_count = 0
+    skipped_refine_no_expert = 0
+    skipped_refine_optimal = 0
+    skipped_refine_no_incumbent = 0
+    skipped_refine_status = 0
     for instance_file in instance_files:
         for instance in iter_instances(instance_file):
             if limit is not None and len(records) >= limit:
@@ -646,13 +709,34 @@ def main(argv: list[str] | None = None) -> None:
             if args.skip_completed and instance.instance_id in completed_ids:
                 skipped_completed_count += 1
                 continue
-            records.append((instance_file, instance))
+
+            warm_start_routes = None
+            if expert_index is not None and expert_summary_path is not None:
+                expert_row = expert_index.get(str(instance.instance_id))
+                if expert_row is None:
+                    skipped_refine_no_expert += 1
+                    continue
+
+                expert_status = normalize_status_name(expert_row)
+                if expert_status == "OPTIMAL":
+                    skipped_refine_optimal += 1
+                    continue
+                if expert_status != "TIME_LIMIT":
+                    skipped_refine_status += 1
+                    continue
+
+                warm_start_routes = load_expert_routes(expert_row, expert_summary_path)
+                if not warm_start_routes or not row_has_objective(expert_row):
+                    skipped_refine_no_incumbent += 1
+                    continue
+
+            records.append((instance_file, instance, warm_start_routes))
         if limit is not None and len(records) >= limit:
             break
 
     instance_infos = {
         instance.instance_id: instance_info(instance, reference_split)
-        for _, instance in records
+        for _, instance, _ in records
     }
     range_label = "all"
     if args.start_index is not None or args.end_index is not None:
@@ -664,6 +748,15 @@ def main(argv: list[str] | None = None) -> None:
         f"index_range={range_label} skipped_range={skipped_range_count} "
         f"skipped_completed={skipped_completed_count}"
     )
+    if expert_index is not None:
+        print(
+            "Refine filter: "
+            f"candidates={len(records)} "
+            f"skipped_no_expert={skipped_refine_no_expert} "
+            f"skipped_optimal={skipped_refine_optimal} "
+            f"skipped_time_limit_no_incumbent={skipped_refine_no_incumbent} "
+            f"skipped_other_status={skipped_refine_status}"
+        )
 
     summary_rows: list[dict[str, Any]] = existing_summary_rows
     time_rows: list[dict[str, Any]] = read_csv_rows(trace_path)
@@ -722,8 +815,9 @@ def main(argv: list[str] | None = None) -> None:
                     str(instance_file),
                     checkpoints_s,
                     args.save_traceback,
+                    warm_start_routes,
                 ): instance.instance_id
-                for instance_file, instance in records
+                for instance_file, instance, warm_start_routes in records
             }
             for done_count, future in enumerate(as_completed(futures), start=1):
                 result = future.result()
@@ -732,8 +826,15 @@ def main(argv: list[str] | None = None) -> None:
                     row = result["summary_row"]
                     print(f"[{done_count}/{len(records)}] {result['instance_id']}: {row.get('status_name')} obj={row.get('objective_distance_km')}")
     else:
-        for done_count, (instance_file, instance) in enumerate(records, start=1):
-            result = solve_instance_task(instance, solver_config, str(instance_file), checkpoints_s, args.save_traceback)
+        for done_count, (instance_file, instance, warm_start_routes) in enumerate(records, start=1):
+            result = solve_instance_task(
+                instance,
+                solver_config,
+                str(instance_file),
+                checkpoints_s,
+                args.save_traceback,
+                warm_start_routes,
+            )
             consume_result(result)
             if args.verbose:
                 row = result["summary_row"]

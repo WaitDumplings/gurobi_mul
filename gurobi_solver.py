@@ -68,12 +68,13 @@ class GurobiEVRPTWSolver:
         self.node_map: NodeMap | None = None
         self.x: dict[tuple[int, int], Any] = {}
 
-    def solve(self, instance: EVRPTWInstance) -> EVRPTWSolution:
+    def solve(self, instance: EVRPTWInstance, warm_start_routes: list[list[int]] | None = None) -> EVRPTWSolution:
         start = time.perf_counter()
         model, node_map, x, distance_expr, vehicle_expr = self._build_model(instance)
         self.model = model
         self.node_map = node_map
         self.x = x
+        warm_start_info = self._apply_warm_start(instance, node_map, x, warm_start_routes)
 
         trace = self._new_trace()
         callback = self._make_callback(trace, node_map, x)
@@ -171,8 +172,76 @@ class GurobiEVRPTWSolver:
                 "distance_tolerance": distance_tolerance,
                 "tie_break_gurobi_status": tie_break_status,
                 "tie_break_gurobi_status_name": tie_break_status_name,
+                "warm_start": warm_start_info,
             },
         )
+
+    def _apply_warm_start(
+        self,
+        instance: EVRPTWInstance,
+        node_map: NodeMap,
+        x: dict[tuple[int, int], Any],
+        warm_start_routes: list[list[int]] | None,
+    ) -> dict[str, Any]:
+        if not warm_start_routes:
+            return {"requested": False, "routes": 0, "arcs_set": 0, "missing_arcs": 0, "mapping_errors": 0}
+
+        for var in x.values():
+            var.Start = 0.0
+
+        terminal_to_solver_nodes: dict[int, list[int]] = {}
+        for solver_node, terminal in enumerate(node_map.solver_to_terminal):
+            terminal_to_solver_nodes.setdefault(int(terminal), []).append(int(solver_node))
+
+        used_cs_nodes: set[int] = set()
+        arcs_set = 0
+        missing_arcs = 0
+        mapping_errors = 0
+
+        def solver_node_for_terminal(terminal: int, route_pos: int) -> int | None:
+            nonlocal mapping_errors
+            if terminal == 0:
+                return node_map.start_depot if route_pos == 0 else node_map.end_depot
+            if 1 <= terminal <= instance.num_customers:
+                return terminal
+            candidates = terminal_to_solver_nodes.get(int(terminal), [])
+            for candidate in candidates:
+                if candidate not in used_cs_nodes and candidate not in {node_map.start_depot, node_map.end_depot}:
+                    used_cs_nodes.add(candidate)
+                    return candidate
+            if candidates:
+                mapping_errors += 1
+                return candidates[0]
+            mapping_errors += 1
+            return None
+
+        for route in warm_start_routes:
+            if len(route) < 2:
+                continue
+            solver_route: list[int] = []
+            for pos, terminal_raw in enumerate(route):
+                terminal = int(terminal_raw)
+                solver_node = solver_node_for_terminal(terminal, pos)
+                if solver_node is None:
+                    solver_route = []
+                    break
+                solver_route.append(solver_node)
+            for i, j in zip(solver_route, solver_route[1:]):
+                arc = (int(i), int(j))
+                var = x.get(arc)
+                if var is None:
+                    missing_arcs += 1
+                    continue
+                var.Start = 1.0
+                arcs_set += 1
+
+        return {
+            "requested": True,
+            "routes": len(warm_start_routes),
+            "arcs_set": arcs_set,
+            "missing_arcs": missing_arcs,
+            "mapping_errors": mapping_errors,
+        }
 
     def _build_model(self, instance: EVRPTWInstance) -> tuple[Model, NodeMap, dict[tuple[int, int], Any], Any, Any]:
         n = instance.num_customers
