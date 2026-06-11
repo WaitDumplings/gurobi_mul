@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 SCRIPT_ROOT = Path(__file__).resolve().parent
-DEFAULT_DATASET_ROOT = SCRIPT_ROOT.parent / "dataset_v1" / "dataset"
+DEFAULT_DATASET_ROOT = SCRIPT_ROOT.parents[1] / "dataset_v1" / "dataset"
 
 
 def default_output_path(split: str, scale: str) -> Path:
@@ -22,7 +22,7 @@ def main() -> None:
     )
     parser.add_argument("--evrptw_root", default="", help="Optional legacy EVRPTW-DB root. If omitted, the bundled evrptw_core package in this repository is used.")
     parser.add_argument("--dataset_path", default="", help="Split dataset directory or a single pickle file. Overrides --dataset_root/--split.")
-    parser.add_argument("--dataset_root", default=str(DEFAULT_DATASET_ROOT), help="Dataset root containing train/val/eval. Defaults to ../dataset_v1/dataset relative to this repository.")
+    parser.add_argument("--dataset_root", default=str(DEFAULT_DATASET_ROOT), help="Dataset root containing train/val/eval. Defaults to ../../dataset_v1/dataset relative to this task directory.")
     parser.add_argument("--split", default="val", choices=["train", "val", "eval"], help="Dataset split when --dataset_path is not provided.")
     parser.add_argument("--scale", default="Cus15", help="Scale to run, e.g. Cus5, Cus15, Cus50.")
     parser.add_argument("--start_index", type=int, required=True, help="Inclusive numeric instance suffix start.")

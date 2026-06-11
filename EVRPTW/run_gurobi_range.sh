@@ -17,7 +17,7 @@ Other options:
   --cs-copies N         Charging-station dummy copies. Default: 2
   --time-limit N        Gurobi optimize-call time limit seconds. Default: 7200; hard cap: 7200
   --mip-gap X           Gurobi relative MIP gap. Default: 0.0
-  --dataset-path PATH   Dataset path. Default: ../dataset_v1/dataset/<split>/<CusN>
+  --dataset-path PATH   Dataset path. Default: ../../dataset_v1/dataset/<split>/<CusN>
   --output-path PATH    Output path. Default: results/<split>/<CusN>
   --log-dir PATH        Log directory. Default: logs
   --log-file PATH       Log file. Default: timestamped file under logs/
@@ -28,7 +28,7 @@ Other options:
 Examples:
   ./run_gurobi_range.sh --workers 24 --start 0 --end 100 --cus 15
   ./run_gurobi_range.sh -w 24 -s 100 -e 200 -c Cus15
-  ./run_gurobi_range.sh --detach -w 32 -s 850 -e 1000 -c 15
+  ./run_gurobi_range.sh --detach -w 32 -s 2600 -e 3400 -c 100
 
 Resume behavior:
   The Python runner uses --skip_completed by default. Restarting the same
@@ -65,7 +65,7 @@ END_INDEX="${END_INDEX:-100}"
 WORKERS="${WORKERS:-24}"
 CUS="${CUS:-${SCALE:-Cus15}}"
 SPLIT="${SPLIT:-train}"
-CS_COPIES="${CS_COPIES:-2}"
+CS_COPIES="${CS_COPIES:-4}"
 TIME_LIMIT_S="${TIME_LIMIT_S:-7200}"
 MIP_GAP="${MIP_GAP:-0.0}"
 CONDA_ENV="${CONDA_ENV:-maojie}"
@@ -165,7 +165,7 @@ done
 (( WORKERS >= 1 )) || die "--workers must be at least 1"
 
 SCALE="$(normalize_scale "$CUS")"
-DATASET_PATH="${DATASET_PATH:-../dataset_v1/dataset/${SPLIT}/${SCALE}}"
+DATASET_PATH="${DATASET_PATH:-../../dataset_v1/dataset/${SPLIT}/${SCALE}}"
 OUTPUT_PATH="${OUTPUT_PATH:-results/${SPLIT}/${SCALE}}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
